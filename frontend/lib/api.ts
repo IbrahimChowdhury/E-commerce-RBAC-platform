@@ -13,10 +13,19 @@ const apiClient = axios.create({
   withCredentials: true, // Include cookies for JWT authentication
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token from localStorage
 apiClient.interceptors.request.use(
   (config) => {
-    // Token will be handled via cookies, but we can add additional headers if needed
+    // Get token from localStorage (since cookies don't work cross-origin)
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      
+      if (token) {
+        // Add token to Authorization header
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -36,8 +45,10 @@ apiClient.interceptors.response.use(
       
       switch (status) {
         case 401:
-          // Token expired or invalid
+          // Token expired or invalid - clear localStorage and redirect
           if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
             window.location.href = '/auth/login';
           }
           error.message = 'Your session has expired. Please log in again.';
