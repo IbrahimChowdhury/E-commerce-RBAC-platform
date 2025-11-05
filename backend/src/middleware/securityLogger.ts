@@ -45,16 +45,44 @@ interface SecurityLogEntry {
 class SecurityLogger {
   private logDir: string;
   private logFile: string;
+  private useFileLogging: boolean;
 
   constructor() {
-    this.logDir = path.join(__dirname, '../../logs');
-    this.logFile = path.join(this.logDir, 'security.log');
-    this.ensureLogDirectory();
+    // In serverless environments (Vercel, AWS Lambda, etc.), use /tmp directory
+    // In local development, use the logs directory
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
+    if (isServerless) {
+      // Use /tmp directory in serverless environments
+      this.logDir = '/tmp/logs';
+      this.useFileLogging = true;
+    } else if (process.env.NODE_ENV === 'development') {
+      // Use local logs directory in development
+      this.logDir = path.join(__dirname, '../../logs');
+      this.useFileLogging = true;
+    } else {
+      // Disable file logging if no suitable location is available
+      // In production, you should use a cloud logging service instead
+      this.logDir = '';
+      this.useFileLogging = false;
+    }
+    
+    if (this.useFileLogging) {
+      this.logFile = path.join(this.logDir, 'security.log');
+      this.ensureLogDirectory();
+    } else {
+      this.logFile = '';
+    }
   }
 
   private ensureLogDirectory(): void {
-    if (!fs.existsSync(this.logDir)) {
-      fs.mkdirSync(this.logDir, { recursive: true });
+    if (this.useFileLogging && !fs.existsSync(this.logDir)) {
+      try {
+        fs.mkdirSync(this.logDir, { recursive: true });
+      } catch (error) {
+        console.error('Failed to create log directory:', error);
+        this.useFileLogging = false;
+      }
     }
   }
 
@@ -87,16 +115,20 @@ class SecurityLogger {
 
     const logLine = this.formatLogEntry(entry);
 
-    try {
-      fs.appendFileSync(this.logFile, logLine);
-    } catch (error) {
-      console.error('Failed to write security log:', error);
+    // Write to file if file logging is enabled
+    if (this.useFileLogging && this.logFile) {
+      try {
+        fs.appendFileSync(this.logFile, logLine);
+      } catch (error) {
+        console.error('Failed to write security log:', error);
+      }
     }
 
-    // Also log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[SECURITY LOG] ${level}: ${action}`, details);
-    }
+    // Always log to console for monitoring services to capture (Vercel logs, CloudWatch, etc.)
+    console.log(`[SECURITY LOG] ${level}: ${action}`, {
+      ...entry,
+      details
+    });
 
     // Send critical alerts (in production, this could send to monitoring systems)
     if (level === SecurityLogLevel.CRITICAL) {
@@ -116,7 +148,16 @@ class SecurityLogger {
   }
 
   public getRecentLogs(hours: number = 24): SecurityLogEntry[] {
+    if (!this.useFileLogging || !this.logFile) {
+      console.warn('File logging is disabled. Logs are only available in console/monitoring services.');
+      return [];
+    }
+
     try {
+      if (!fs.existsSync(this.logFile)) {
+        return [];
+      }
+
       const logContent = fs.readFileSync(this.logFile, 'utf-8');
       const lines = logContent.split('\n').filter(line => line.trim());
       const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
