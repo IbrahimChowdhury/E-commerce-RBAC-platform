@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 // CORS Configuration
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
+    process.env.FRONTEND_URL || 'http://localhost:3000','https://e-commerce-rbac-platform.appwrite.network/',
     'http://localhost:3000', // Next.js default dev server
     'http://127.0.0.1:3000'  // Alternative localhost
   ],
