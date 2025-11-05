@@ -7,8 +7,8 @@ It includes **Admin**, **Seller**, and **Buyer** roles with complete authenticat
 
 ## 🌐 Deployment URLs
 
-- **Frontend:** https://your-frontend-url.vercel.app  
-- **Backend API:** https://your-backend-url.vercel.app/api  
+- **Frontend:** https://e-commerce-rbac-platform.appwrite.network/
+- **Backend API:** https://e-commerce-rbac-platform-backend.vercel.app/
 
 ---
 
