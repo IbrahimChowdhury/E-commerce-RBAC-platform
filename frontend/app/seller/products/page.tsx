@@ -98,19 +98,18 @@ export default function SellerProductsPage() {
         queryParams.category = filters.category
       }
 
-      // Use the seller-specific endpoint
-      const response = await fetch('/api/products/seller/my-products?' + new URLSearchParams(queryParams), {
-        credentials: 'include'
+      // Use the seller-specific endpoint with apiClient (includes Authorization header)
+      const apiClient = (await import('../../../lib/api')).default
+      const response = await apiClient.get('/api/products/seller/my-products', {
+        params: queryParams
       })
 
-      const data = await response.json()
-
-      if (data.success) {
-        const productsData = data.data as ProductsResponse
+      if (response.data.success) {
+        const productsData = response.data.data as ProductsResponse
         setProducts(productsData.products)
         setPagination(productsData.pagination)
       } else {
-        setError(data.message || 'Failed to fetch products')
+        setError(response.data.message || 'Failed to fetch products')
       }
     } catch (error) {
       console.error('Error fetching products:', error)
