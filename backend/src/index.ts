@@ -20,15 +20,28 @@ const corsOptions = {
       process.env.FRONTEND_URL
     ].filter(Boolean); // Remove undefined values
 
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps, curl, or server-side requests)
     if (!origin) {
       return callback(null, true);
     }
 
+    // Allow Appwrite internal requests (they use http://appwrite internally)
+    if (origin.includes('appwrite')) {
+      console.log('Allowing Appwrite origin:', origin);
+      return callback(null, true);
+    }
+
+    // Allow localhost in development
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+
+    // Check against whitelist
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       console.log('Blocked by CORS:', origin);
+      console.log('Allowed origins:', allowedOrigins);
       callback(new Error('Not allowed by CORS'));
     }
   },
