@@ -1,14 +1,6 @@
 import multer from 'multer';
 import path from 'path';
-import fs from 'fs';
-import crypto from 'crypto';
 import { fileUploadSchema } from '../utils/validation';
-
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
 
 // Sanitize filename to prevent directory traversal and other attacks
 const sanitizeFilename = (filename: string): string => {
@@ -21,25 +13,9 @@ const sanitizeFilename = (filename: string): string => {
     .substring(0, 100); // Limit length
 };
 
-// Configure multer for temporary file storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    // Generate secure unique filename
-    const sanitizedName = sanitizeFilename(file.originalname);
-    const extension = path.extname(sanitizedName);
-    const nameWithoutExt = path.basename(sanitizedName, extension);
-    
-    // Add timestamp and random string for uniqueness
-    const timestamp = Date.now();
-    const randomString = crypto.randomBytes(8).toString('hex');
-    const uniqueName = `${nameWithoutExt}_${timestamp}_${randomString}${extension}`;
-    
-    cb(null, uniqueName);
-  }
-});
+// Configure multer for memory storage (files uploaded to Cloudinary, no local storage)
+// Files will be stored in memory temporarily and uploaded directly to Cloudinary
+const storage = multer.memoryStorage();
 
 // Enhanced file filter function with security checks
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -133,19 +109,14 @@ export const uploadImages = (req: any, res: any, next: any) => {
             size: file.size
           });
           
-          // Check file content (magic bytes) for images
-          const fileBuffer = fs.readFileSync(file.path);
-          if (!isValidImageFile(fileBuffer, file.mimetype)) {
-            // Clean up the invalid file
-            fs.unlinkSync(file.path);
+          // Check file content (magic bytes) for images using buffer from memory storage
+          if (!isValidImageFile(file.buffer, file.mimetype)) {
             return res.status(400).json({
               success: false,
               message: `Invalid image file: ${file.originalname}. File content doesn't match the declared type.`
             });
           }
         } catch (error) {
-          // Clean up the invalid file
-          fs.unlinkSync(file.path);
           return res.status(400).json({
             success: false,
             message: `File validation failed for ${file.originalname}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -178,19 +149,14 @@ export const uploadDocuments = (req: any, res: any, next: any) => {
             size: file.size
           });
           
-          // Check file content (magic bytes) for PDFs
-          const fileBuffer = fs.readFileSync(file.path);
-          if (!isValidPDFFile(fileBuffer)) {
-            // Clean up the invalid file
-            fs.unlinkSync(file.path);
+          // Check file content (magic bytes) for PDFs using buffer from memory storage
+          if (!isValidPDFFile(file.buffer)) {
             return res.status(400).json({
               success: false,
               message: `Invalid PDF file: ${file.originalname}. File content doesn't match PDF format.`
             });
           }
         } catch (error) {
-          // Clean up the invalid file
-          fs.unlinkSync(file.path);
           return res.status(400).json({
             success: false,
             message: `File validation failed for ${file.originalname}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -235,17 +201,12 @@ const isValidPDFFile = (fileBuffer: Buffer): boolean => {
   return header === '%PDF';
 };
 
-// Cleanup function to delete temporary files
+// Cleanup function - No longer needed with memory storage as files are not saved to disk
+// Kept for backward compatibility but does nothing
 export const cleanupTempFiles = (files: Express.Multer.File[]) => {
-  files.forEach(file => {
-    try {
-      if (fs.existsSync(file.path)) {
-        fs.unlinkSync(file.path);
-      }
-    } catch (error) {
-      console.error('Error deleting temp file:', file.path, error);
-    }
-  });
+  // Files are stored in memory, no cleanup needed
+  // This function is kept for backward compatibility with existing code
+  console.log(`Memory cleanup: ${files.length} file(s) processed`);
 };
 
 // Enhanced error handling middleware for multer
@@ -301,8 +262,8 @@ export const handleMulterError = (error: any, req: any, res: any, next: any) => 
 export const scanUploadedFiles = (req: any, res: any, next: any) => {
   if (req.files && Array.isArray(req.files)) {
     for (const file of req.files) {
-      // Basic security checks
-      const fileBuffer = fs.readFileSync(file.path);
+      // Basic security checks using buffer from memory storage
+      const fileBuffer = file.buffer;
       
       // Check for common malicious patterns (very basic)
       const fileContent = fileBuffer.toString('ascii').toLowerCase();
@@ -318,8 +279,6 @@ export const scanUploadedFiles = (req: any, res: any, next: any) => {
       
       for (const pattern of maliciousPatterns) {
         if (fileContent.includes(pattern)) {
-          // Clean up the malicious file
-          fs.unlinkSync(file.path);
           return res.status(400).json({
             success: false,
             message: `Potentially malicious content detected in file: ${file.originalname}`

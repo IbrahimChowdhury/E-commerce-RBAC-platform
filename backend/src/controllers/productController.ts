@@ -461,9 +461,9 @@ export const uploadProductImages = async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Upload images to Cloudinary
+    // Upload images to Cloudinary from memory buffer
     const { uploadImage } = await import('../config/cloudinary');
-    const uploadPromises = files.map(file => uploadImage(file.path, `products/${product._id}`));
+    const uploadPromises = files.map(file => uploadImage(file.buffer, `products/${product._id}`));
     
     const uploadResults = await Promise.all(uploadPromises);
 
@@ -472,9 +472,8 @@ export const uploadProductImages = async (req: AuthRequest, res: Response) => {
     product.images.push(...newImageUrls);
     await product.save();
 
-    // Clean up temporary files
-    const { cleanupTempFiles } = await import('../middleware/uploadMiddleware');
-    cleanupTempFiles(files);
+    // No cleanup needed with memory storage
+    console.log(`${files.length} image(s) uploaded to Cloudinary successfully`);
 
     // Populate seller info for response
     await product.populate('seller', 'name email');
@@ -488,11 +487,7 @@ export const uploadProductImages = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Upload images error:', error);
 
-    // Clean up temporary files in case of error
-    if (req.files) {
-      const { cleanupTempFiles } = await import('../middleware/uploadMiddleware');
-      cleanupTempFiles(req.files as Express.Multer.File[]);
-    }
+    // No cleanup needed with memory storage
 
     res.status(500).json({
       success: false,
@@ -549,9 +544,9 @@ export const uploadProductDocuments = async (req: AuthRequest, res: Response) =>
       });
     }
 
-    // Upload documents to Cloudinary
+    // Upload documents to Cloudinary from memory buffer
     const { uploadPDF } = await import('../config/cloudinary');
-    const uploadPromises = files.map(file => uploadPDF(file.path, `documents/${product._id}`));
+    const uploadPromises = files.map(file => uploadPDF(file.buffer, `documents/${product._id}`));
     
     const uploadResults = await Promise.all(uploadPromises);
 
@@ -560,9 +555,8 @@ export const uploadProductDocuments = async (req: AuthRequest, res: Response) =>
     product.documents.push(...newDocumentUrls);
     await product.save();
 
-    // Clean up temporary files
-    const { cleanupTempFiles } = await import('../middleware/uploadMiddleware');
-    cleanupTempFiles(files);
+    // No cleanup needed with memory storage
+    console.log(`${files.length} document(s) uploaded to Cloudinary successfully`);
 
     // Populate seller info for response
     await product.populate('seller', 'name email');
@@ -576,11 +570,7 @@ export const uploadProductDocuments = async (req: AuthRequest, res: Response) =>
   } catch (error: any) {
     console.error('Upload documents error:', error);
 
-    // Clean up temporary files in case of error
-    if (req.files) {
-      const { cleanupTempFiles } = await import('../middleware/uploadMiddleware');
-      cleanupTempFiles(req.files as Express.Multer.File[]);
-    }
+    // No cleanup needed with memory storage
 
     res.status(500).json({
       success: false,
